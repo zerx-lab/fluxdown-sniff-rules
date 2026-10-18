@@ -1,8 +1,8 @@
 {
   "repo": "zerx-lab/sniff-rules-e2e",
-  "tag": "v1.0.0",
-  "publishedAt": "2026-10-18T06:55:13Z",
-  "url": "https://github.com/zerx-lab/sniff-rules-e2e/releases/download/v1.0.0/sniff-rules.json",
-  "sha256": "28cf6af41dd8a311fa97c62e5ee775a673d6c72be9496c6ce56ec0ec4124a282",
-  "stagedAt": "2026-10-18T06:56:46.633Z"
+  "tag": "v1.0.1",
+  "publishedAt": "2026-10-18T06:58:24Z",
+  "url": "https://github.com/zerx-lab/sniff-rules-e2e/releases/download/v1.0.1/sniff-rules.json",
+  "sha256": "906d800e5754e7cd3a1ff0b823256666c6694df6421f2720e6cb5f613ea40825",
+  "stagedAt": "2026-10-18T06:59:04.257Z"
 }
