@@ -58,7 +58,7 @@ export async function stageAll(root, { fetchRelease, now = Date.now() } = {}) {
   const sourcesDir = join(root, "sources");
   if (existsSync(sourcesDir)) {
     for (const ns of readdirSync(sourcesDir)) {
-      if (!registered.has(ns)) {
+      if (!ns.startsWith(".") && !registered.has(ns)) {
         rmSync(join(sourcesDir, ns), { recursive: true, force: true });
         results.removed.push(ns);
       }

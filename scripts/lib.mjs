@@ -336,7 +336,7 @@ export function loadSources(root, { override = null, registry: registryOverride 
   const sourcesDir = join(root, "sources");
   if (existsSync(sourcesDir)) {
     for (const ns of readdirSync(sourcesDir).sort()) {
-      if (!registered.has(ns)) errors.push(`sources/${ns}：命名空间未在 registry.json 登记`);
+      if (!ns.startsWith(".") && !registered.has(ns)) errors.push(`sources/${ns}：命名空间未在 registry.json 登记`);
     }
   }
   for (const entry of registry.sources) {
