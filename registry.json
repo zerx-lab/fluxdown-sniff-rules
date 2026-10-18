@@ -1,5 +1,3 @@
 {
-  "sources": [
-    { "ns": "e2e-test", "repo": "zerx-lab/sniff-rules-e2e", "hosts": ["example.com"], "description": "端到端流程验证（测试后下架）" }
-  ]
+  "sources": []
 }
