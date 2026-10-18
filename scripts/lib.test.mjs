@@ -17,7 +17,7 @@ import {
   signEnvelope,
   validateRules,
 } from "./lib.mjs";
-import { ROOT, scratchRepo } from "./test-support.mjs";
+import { scratchRepo } from "./test-support.mjs";
 
 const siteRule = (overrides = {}) => ({
   id: "community.misc.video",
