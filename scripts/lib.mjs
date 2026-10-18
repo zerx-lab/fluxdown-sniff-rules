@@ -332,13 +332,7 @@ export function loadSources(root, { override = null, registry: registryOverride 
     }
   }
 
-  const registered = new Set(registry.sources.map((s) => s.ns));
-  const sourcesDir = join(root, "sources");
-  if (existsSync(sourcesDir)) {
-    for (const ns of readdirSync(sourcesDir).sort()) {
-      if (!ns.startsWith(".") && !registered.has(ns)) errors.push(`sources/${ns}：命名空间未在 registry.json 登记`);
-    }
-  }
+  // 只读取登记表里的命名空间；已下架但快照还没被收录任务删除的目录不参与打包，也不算错误。
   for (const entry of registry.sources) {
     const paths = sourcePaths(root, entry.ns);
     const rel = `sources/${entry.ns}/${SOURCE_ASSET}`;

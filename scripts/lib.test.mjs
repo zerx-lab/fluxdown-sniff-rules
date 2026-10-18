@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createPublicKey, generateKeyPairSync, verify } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, test } from "node:test";
 import {
@@ -122,7 +122,16 @@ describe("规则测试", () => {
   });
 
   test("仓库自带的官方规则全部通过", () => {
-    assert.deepEqual(checkRepository(ROOT).errors, []);
+    assert.deepEqual(checkRepository(scratchRepo()).errors, []);
+  });
+
+  test("已下架命名空间的残留快照不参与打包也不报错", () => {
+    const dir = scratchRepo();
+    mkdirSync(join(dir, "sources/gone"), { recursive: true });
+    writeFileSync(join(dir, "sources/gone/sniff-rules.json"), "{}");
+    const { errors, sources } = checkRepository(dir);
+    assert.deepEqual(errors, []);
+    assert.equal(sources.rules.community.length, 0);
   });
 });
 
