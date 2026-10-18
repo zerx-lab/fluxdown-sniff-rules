@@ -22,7 +22,8 @@ export const FIELDS = {
   notes: "说明 / Notes",
 };
 const NO_RESPONSE = "_No response_";
-const SUFFIX_RE = /^[a-z0-9][a-z0-9._-]{1,62}$/;
+/** 规则 id 去掉 `community.misc.` 后的部分（总长受扩展 id 规则 63 字符限制）。 */
+const SUFFIX_RE = /^[a-z0-9][a-z0-9._-]{1,56}$/;
 
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -70,8 +71,8 @@ export function fileSlug(rule) {
 }
 
 /**
- * 把提交的规则转成社区规则。接受单条规则、规则数组、规则包或规则文件（{ rules, tests }）。
- * `local.*` / `community.*` 统一改写为 `community.*`；其它层级拒绝。
+ * 把提交的规则转成规则仓托管的社区规则（命名空间 misc）。接受单条规则、规则数组、规则包或规则文件
+ * （{ rules, tests }）。`local.x` / `community.x` / `community.misc.x` 统一改写为 `community.misc.x`；其它层级拒绝。
  */
 export function toCommunityRules(input) {
   const errors = [];
@@ -92,16 +93,17 @@ export function toCommunityRules(input) {
     }
     const dot = raw.id.indexOf(".");
     const prefix = dot > 0 ? raw.id.slice(0, dot) : "";
-    const suffix = dot > 0 ? raw.id.slice(dot + 1) : "";
+    let suffix = dot > 0 ? raw.id.slice(dot + 1) : "";
+    if (prefix === "community" && suffix.startsWith("misc.")) suffix = suffix.slice("misc.".length);
     if (prefix !== "local" && prefix !== "community") {
       errors.push(`${raw.id}：只能提交本地（local.*）或社区（community.*）规则`);
       continue;
     }
     if (!SUFFIX_RE.test(suffix)) {
-      errors.push(`${raw.id}：id 后缀只能含小写字母、数字、点、下划线、连字符（2–63 个字符）`);
+      errors.push(`${raw.id}：id 名称部分只能含小写字母、数字、点、下划线、连字符（2–57 个字符）`);
       continue;
     }
-    rules.push({ ...raw, id: `community.${suffix}`, tier: "community" });
+    rules.push({ ...raw, id: `community.misc.${suffix}`, tier: "community" });
   }
   return { rules, tests, errors };
 }

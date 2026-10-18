@@ -1,0 +1,42 @@
+name: author-check
+
+# 供登记仓库调用的可复用工作流：用规则仓 main 的当前状态检查作者仓库里的 sniff-rules.json，
+# 与收录时的检查完全相同。在作者仓库中：
+#
+#   jobs:
+#     check:
+#       uses: zerx-lab/fluxdown-sniff-rules/.github/workflows/author-check.yml@main
+on:
+  workflow_call:
+    inputs:
+      file:
+        description: 规则文件路径（相对作者仓库根目录）
+        type: string
+        default: sniff-rules.json
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: author
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: zerx-lab/fluxdown-sniff-rules
+          ref: main
+          path: central
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check sniff rules
+        env:
+          FILE: ${{ inputs.file }}
+          REPO: ${{ github.repository }}
+        run: node central/scripts/check-source.mjs --root central --file "author/$FILE" --repo "$REPO"

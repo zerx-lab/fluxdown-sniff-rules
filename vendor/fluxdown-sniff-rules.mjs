@@ -1041,6 +1041,14 @@ function checkRule(rule, expectedTier) {
         if (typeof h !== "string" || !parseHostPattern(h))
           return "mirror.hosts 非法";
       }
+      if (rule.tier === "community") {
+        const scope = [...rule.match.host ?? [], ...rule.match.pageHost ?? []].flatMap((p) => parseHostPattern(p) ?? []);
+        for (const h of a.hosts) {
+          const domain = parseHostPattern(h)?.domain ?? "";
+          if (!scope.some((p) => hostMatchesPattern(domain, p)))
+            return `社区规则的 mirror.hosts 必须在 match.host / pageHost 范围内: ${h}`;
+        }
+      }
       break;
     case "title":
     case "player": {
@@ -1375,6 +1383,19 @@ function compileRules(input) {
     for (const e of c.rule.match.ext ?? [])
       known.add(e.toLowerCase());
   }
+  const communityScope = new Map;
+  for (const { rule } of active) {
+    if (rule.tier === "community") {
+      communityScope.set(rule.id, compileHosts([...rule.match.host ?? [], ...rule.match.pageHost ?? []]));
+    }
+  }
+  const emitAllowed = (rule, url) => {
+    const scope = communityScope.get(rule.id);
+    if (scope === undefined)
+      return true;
+    const host = hostOf(url);
+    return host !== "" && scope.some((p) => hostMatchesPattern(host, p));
+  };
   const globalStrip = new Set;
   const scopedStrip = [];
   for (const c of stripRules) {
@@ -1594,7 +1615,7 @@ function compileRules(input) {
         const emits = [];
         for (const el of elements) {
           const e = emitOne(a.emit, scalarFields(el, a.fields));
-          if (e)
+          if (e && emitAllowed(r.ref, e.url))
             emits.push(e);
         }
         if (emits.length > 0)
@@ -1664,8 +1685,9 @@ function compileRules(input) {
       }
       return groups;
     },
-    renderDomEmit(_rule, emit, fields) {
-      return emitOne(emit, { value: fields.value, text: fields.text, page: fields.page });
+    renderDomEmit(rule, emit, fields) {
+      const e = emitOne(emit, { value: fields.value, text: fields.text, page: fields.page });
+      return e && emitAllowed(rule, e.url) ? e : null;
     },
     listRules() {
       return listing;
@@ -1681,5 +1703,7 @@ export {
   PackRejectedError,
   RULE_ENGINE_VERSION,
   compileRules,
+  hostMatchesPattern,
+  parseHostPattern,
   validatePack
 };

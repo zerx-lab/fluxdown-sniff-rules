@@ -1,0 +1,57 @@
+name: registry-check
+
+# 登记 PR 检查：拉取新增 / 改动条目的 Latest Release，做与收录相同的检查并评论。
+# pull_request_target 以 main 的代码运行，PR 的 registry.json 只作为数据读取，绝不检出或执行 PR 代码。
+on:
+  pull_request_target:
+    branches: [main]
+    paths: [registry.json]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: PR 编号
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: registry-check-${{ github.event.pull_request.number || inputs.pr }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR: ${{ github.event.pull_request.number || inputs.pr }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Fetch PR registry.json and changed files
+        run: |
+          head_repo="$(gh pr view "$PR" -R "$GITHUB_REPOSITORY" --json headRepositoryOwner,headRepository --jq '.headRepositoryOwner.login + "/" + .headRepository.name')"
+          head_sha="$(gh pr view "$PR" -R "$GITHUB_REPOSITORY" --json headRefOid --jq .headRefOid)"
+          gh pr view "$PR" -R "$GITHUB_REPOSITORY" --json author --jq .author.login > "$RUNNER_TEMP/author.txt"
+          gh pr view "$PR" -R "$GITHUB_REPOSITORY" --json files --jq '.files[].path' > "$RUNNER_TEMP/files.txt"
+          curl -fsSL "https://raw.githubusercontent.com/${head_repo}/${head_sha}/registry.json" -o "$RUNNER_TEMP/registry.json"
+      - name: Check registration
+        id: check
+        run: |
+          set +e
+          node scripts/check-registry.mjs --head "$RUNNER_TEMP/registry.json" \
+            --author "$(cat "$RUNNER_TEMP/author.txt")" --files "$RUNNER_TEMP/files.txt" \
+            --out "$RUNNER_TEMP/comment.md"
+          echo "status=$?" >> "$GITHUB_OUTPUT"
+      - name: Comment
+        run: gh pr comment "$PR" -R "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/comment.md"
+      - name: Result
+        run: test "${{ steps.check.outputs.status }}" = "0"

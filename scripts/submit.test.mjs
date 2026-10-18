@@ -52,7 +52,7 @@ describe("规则转换", () => {
   test("local.* 改写为 community.*，其它层级拒绝", () => {
     const { rules, errors } = toCommunityRules([localRule, { ...localRule, id: "official.x.y", tier: "official" }]);
     assert.equal(rules.length, 1);
-    assert.equal(rules[0].id, "community.example-video");
+    assert.equal(rules[0].id, "community.misc.example-video");
     assert.equal(rules[0].tier, "community");
     assert.match(errors[0], /official\.x\.y/);
   });
@@ -97,7 +97,7 @@ describe("提交处理", () => {
     assert.equal(result.file, "rules/community/example.com.json");
     assert.deepEqual(result.warnings, []);
     const written = JSON.parse(readFileSync(join(dir, result.file), "utf8"));
-    assert.equal(written.rules[0].id, "community.example-video");
+    assert.equal(written.rules[0].id, "community.misc.example-video");
     assert.equal(written.rules[0].version, 3);
     assert.equal(written.tests.length, 1);
   });
@@ -121,7 +121,7 @@ describe("提交处理", () => {
   test("更新已有站点文件失败时恢复原内容", () => {
     const dir = scratchRepo();
     const path = join(dir, "rules/community/example.com.json");
-    const original = `${JSON.stringify({ rules: [{ ...localRule, id: "community.keep", tier: "community" }] }, null, 2)}\n`;
+    const original = `${JSON.stringify({ rules: [{ ...localRule, id: "community.misc.keep", tier: "community" }] }, null, 2)}\n`;
     writeFileSync(path, original);
     const broken = { ...localRule, action: { kind: "resource", type: "nope" } };
     const result = processSubmission({ root: dir, issue: issue(issueBody({ rule: JSON.stringify(broken) })) });

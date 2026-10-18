@@ -1,7 +1,6 @@
-# 社区规则
+# 规则仓托管的社区规则（命名空间 `misc`）
 
-每个站点一个文件：`<站点域名>.json`，结构 `{ "rules": [...], "tests": [...] }`。
-规则 id 以 `community.` 开头，`tier` 为 `community`，`match` 必须限定 `host` 或 `pageHost`。
+经 Issue 表单「提交社区规则」一次性贡献的规则放在这里：每个站点一个文件 `<站点域名>.json`，结构 `{ "rules": [...], "tests": [...] }`，
+规则 id 为 `community.misc.<名字>`，`match` 必须限定 `host` 或 `pageHost`，且不能触碰已被登记仓库认领的站点。
 
-最方便的提交方式：在 FluxDown 扩展「设置 → 嗅探规则 → 本地规则」里写好并验证规则，点该行的「提交到社区」。
-完整说明见仓库根目录 README 与 <https://fluxdown.zerx.dev/docs/zh/browser-extension/sniff-rules/>。
+长期维护的规则请放在你自己的仓库并登记（见仓库根目录 README「维护自己的规则仓库」）。

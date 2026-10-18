@@ -1,20 +1,24 @@
 name: 提交社区规则 / Submit a community rule
-description: 把在扩展「本地规则」里验证过的嗅探规则贡献给所有用户。/ Share a sniff rule you verified as a local rule.
+description: 一次性贡献：把在扩展「本地规则」里验证过的规则交给规则仓托管。/ One-off contribution of a rule you verified as a local rule.
 title: "[规则] "
 labels: [community-rule]
 body:
   - type: markdown
     attributes:
       value: |
-        提交后机器人会自动校验并生成 Pull Request；校验失败会在下方回复原因，编辑本 Issue 即可重新校验。
-        After submitting, a bot validates the rule and opens a pull request; edit this issue to re-run validation.
+        这是**一次性贡献**的通道：规则会以 `community.misc.*` 收进本仓库，之后的修改也要再提 Issue，由维护者审核。
+        打算长期维护某些站点的规则？请改用**自己的规则仓库**：登记一次，之后发 Release 自动收录，无需每次审核——见[维护自己的规则仓库](https://fluxdown.zerx.dev/docs/zh/contributing/sniff-rules/#维护自己的规则仓库)。
+        已被登记仓库认领的站点不接受此处提交，请向对应仓库贡献。
 
+        This is the one-off channel (rules land as `community.misc.*`). To maintain rules long-term, publish them from your own repository and register it once — see the contributing guide.
+
+        提交后机器人会自动校验并生成 Pull Request；校验失败会在下方回复原因，编辑本 Issue 即可重新校验。
         字段说明 / Field reference: https://fluxdown.zerx.dev/docs/zh/browser-extension/sniff-rules/
   - type: textarea
     id: rule
     attributes:
       label: 规则 JSON / Rule JSON
-      description: 在扩展「本地规则」行点击「提交到社区」会自动填好；也可粘贴单条规则、规则数组或导出的规则文件。`local.*` 会自动改为 `community.*`。
+      description: 在扩展「本地规则」行点击「提交到社区」会自动填好；也可粘贴单条规则、规则数组或导出的规则文件。`local.x` 会自动改为 `community.misc.x`。
       render: json
     validations:
       required: true

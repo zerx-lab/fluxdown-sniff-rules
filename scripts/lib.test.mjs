@@ -20,7 +20,7 @@ import {
 import { ROOT, scratchRepo } from "./test-support.mjs";
 
 const siteRule = (overrides = {}) => ({
-  id: "community.example.video",
+  id: "community.misc.video",
   version: 1,
   tier: "community",
   stage: "response",
@@ -99,7 +99,7 @@ describe("规则测试", () => {
       name: "命中",
       call: "classifyResponse",
       args: [{ url: "https://cdn.example.com/a.xyz", pageUrl: "", size: 0, attachment: false }],
-      expect: { decision: "resource", type: "video", rule: { id: "community.example.video" } },
+      expect: { decision: "resource", type: "video", rule: { id: "community.misc.video" } },
     };
     assert.deepEqual(runTests(rules, [], [passing]), []);
     const failing = { ...passing, name: "写错期望", expect: { decision: "ignore" } };
@@ -117,7 +117,7 @@ describe("规则测试", () => {
       args: [{ url: "https://cdn.example.com/a.xyz", pageUrl: "", size: 0, attachment: false }],
       expect: { decision: "none" },
     };
-    const revoked = [{ ruleId: "community.example.video", versions: "*", action: "hard", reason: "x" }];
+    const revoked = [{ ruleId: "community.misc.video", versions: "*", action: "hard", reason: "x" }];
     assert.deepEqual(runTests(rules, revoked, [call]), []);
   });
 
@@ -236,7 +236,7 @@ describe("build.mjs 端到端", () => {
     build("2026-06-03T00:00:00Z");
     assert.equal(payloadOf("official").sequence, 1);
     assert.equal(payloadOf("community").sequence, 2);
-    assert.equal(payloadOf("community").rules[0].id, "community.example.video");
+    assert.equal(payloadOf("community").rules[0].id, "community.misc.video");
     assert.equal(payloadOf("revocations").sequence, 1);
 
     // 吊销列表有效期剩余不足 14 天时由定时任务续签。

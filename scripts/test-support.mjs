@@ -6,12 +6,14 @@ import { join } from "node:path";
 
 export const ROOT = new URL("..", import.meta.url).pathname;
 
-export function scratchRepo() {
+/** `registry` 为登记表条目数组（默认空）。 */
+export function scratchRepo({ registry = [] } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "sniff-rules-"));
   for (const entry of ["rules/official", "vendor", "scripts", "keys.json"]) {
     cpSync(join(ROOT, entry), join(dir, entry), { recursive: true });
   }
   mkdirSync(join(dir, "rules", "community"), { recursive: true });
   writeFileSync(join(dir, "revocations.json"), '{ "entries": [] }\n');
+  writeFileSync(join(dir, "registry.json"), `${JSON.stringify({ sources: registry }, null, 2)}\n`);
   return dir;
 }
