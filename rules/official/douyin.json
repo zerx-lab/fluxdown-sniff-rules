@@ -1,0 +1,48 @@
+{
+  "rules": [
+    {
+      "id": "official.douyin.title",
+      "version": 1,
+      "tier": "official",
+      "title": "抖音：视频描述作为文件名",
+      "stage": "page",
+      "match": {
+        "pageHost": [
+          "douyin.com"
+        ]
+      },
+      "action": {
+        "kind": "title",
+        "selector": "[data-e2e=\"video-desc\"]"
+      }
+    }
+  ],
+  "tests": [
+    {
+      "name": "抖音页面取视频描述作标题",
+      "call": "pageHints",
+      "args": [
+        "https://www.douyin.com/video/7300000000000000000"
+      ],
+      "expect": {
+        "titles": [
+          {
+            "selector": "[data-e2e=\"video-desc\"]"
+          }
+        ],
+        "players": []
+      }
+    },
+    {
+      "name": "其它站点不生效",
+      "call": "pageHints",
+      "args": [
+        "https://www.example.com/video/1"
+      ],
+      "expect": {
+        "titles": [],
+        "players": []
+      }
+    }
+  ]
+}

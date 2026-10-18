@@ -1,0 +1,74 @@
+name: submit
+
+# 「提交社区规则」Issue → 校验 → 推送 community/issue-<编号> 分支并开 / 更新 PR。
+# Issue 内容只经 scripts/submit.mjs 当作 JSON 数据处理；不在 shell 中展开任何 Issue 文本。
+on:
+  issues:
+    types: [opened, edited, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: submit-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  submit:
+    if: >-
+      github.repository == 'zerx-lab/fluxdown-sniff-rules' &&
+      github.event.issue.state == 'open' &&
+      contains(github.event.issue.labels.*.name, 'community-rule')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ISSUE: ${{ github.event.issue.number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate submission
+        run: node scripts/submit.mjs --event "$GITHUB_EVENT_PATH" --out "$RUNNER_TEMP/submit"
+      - name: Report failure
+        run: |
+          out="$RUNNER_TEMP/submit"
+          if [ "$(jq -r .ok "$out/result.json")" = "true" ]; then
+            exit 0
+          fi
+          gh issue edit "$ISSUE" --add-label needs-fix
+          gh issue comment "$ISSUE" --body-file "$out/comment.md"
+      - name: Open or update pull request
+        run: |
+          out="$RUNNER_TEMP/submit"
+          if [ "$(jq -r .ok "$out/result.json")" != "true" ]; then
+            exit 0
+          fi
+          branch="community/issue-$ISSUE"
+          git checkout -B "$branch"
+          git add rules/community
+          if ! git diff --cached --quiet; then
+            git -c user.name="github-actions[bot]" \
+                -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+                commit -F <(jq -r .commitMessage "$out/result.json")
+          fi
+          git push --force origin "$branch"
+          pr="$(gh pr list --head "$branch" --state open --json url --jq '.[0].url')"
+          if [ -z "$pr" ]; then
+            pr="$(gh pr create --base main --head "$branch" \
+              --title "$(jq -r .prTitle "$out/result.json")" \
+              --body-file "$out/pr.md" \
+              --label community-rule)"
+          else
+            gh pr edit "$pr" --body-file "$out/pr.md"
+          fi
+          if gh issue view "$ISSUE" --json labels --jq '.labels[].name' | grep -qx needs-fix; then
+            gh issue edit "$ISSUE" --remove-label needs-fix
+          fi
+          { cat "$out/comment.md"; echo; echo "Pull Request: $pr"; } > "$out/comment-pr.md"
+          gh issue comment "$ISSUE" --body-file "$out/comment-pr.md"

@@ -1,0 +1,171 @@
+{
+  "rules": [
+    {
+      "id": "official.lanzou.extract",
+      "version": 1,
+      "tier": "official",
+      "title": "蓝奏云：从 ajaxm.php 响应提取直链",
+      "stage": "body",
+      "match": {
+        "url": [
+          "*/ajaxm.php*"
+        ]
+      },
+      "action": {
+        "kind": "extract",
+        "when": [
+          {
+            "path": "zt",
+            "equals": 1
+          }
+        ],
+        "fields": {
+          "dom": "dom",
+          "url": "url",
+          "name": "inf"
+        },
+        "emit": {
+          "mode": "preempt",
+          "url": {
+            "resolve": {
+              "base": "${dom}",
+              "ref": "${url}",
+              "bareQueryPrefix": "/file/"
+            }
+          },
+          "filename": "${name}"
+        }
+      }
+    }
+  ],
+  "tests": [
+    {
+      "name": "ref 为完整 URL",
+      "call": "extractFromBody",
+      "args": [
+        "https://wwwa.lanzoux.com/ajaxm.php?file=1",
+        "https://wwwa.lanzoux.com/iXXXX",
+        {
+          "zt": 1,
+          "dom": "https://dl.cdn.com",
+          "url": "https://other.cdn.com/f?t=1",
+          "inf": "a.zip"
+        }
+      ],
+      "expect": [
+        {
+          "rule": {
+            "id": "official.lanzou.extract"
+          },
+          "emits": [
+            {
+              "mode": "preempt",
+              "url": "https://other.cdn.com/f?t=1",
+              "filename": "a.zip"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ref 以 / 开头",
+      "call": "extractFromBody",
+      "args": [
+        "https://wwwa.lanzoux.com/ajaxm.php?file=1",
+        "https://wwwa.lanzoux.com/iXXXX",
+        {
+          "zt": 1,
+          "dom": "https://dl.cdn.com",
+          "url": "/file/?abc",
+          "inf": "a.zip"
+        }
+      ],
+      "expect": [
+        {
+          "rule": {
+            "id": "official.lanzou.extract"
+          },
+          "emits": [
+            {
+              "mode": "preempt",
+              "url": "https://dl.cdn.com/file/?abc",
+              "filename": "a.zip"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "仅 query（bareQueryPrefix）",
+      "call": "extractFromBody",
+      "args": [
+        "https://wwwa.lanzoux.com/ajaxm.php?file=1",
+        "https://wwwa.lanzoux.com/iXXXX",
+        {
+          "zt": 1,
+          "dom": "https://dl.cdn.com",
+          "url": "?token",
+          "inf": "a.zip"
+        }
+      ],
+      "expect": [
+        {
+          "rule": {
+            "id": "official.lanzou.extract"
+          },
+          "emits": [
+            {
+              "mode": "preempt",
+              "url": "https://dl.cdn.com/file/?token",
+              "filename": "a.zip"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "zt != 1 不产出",
+      "call": "extractFromBody",
+      "args": [
+        "https://wwwa.lanzoux.com/ajaxm.php?file=1",
+        "https://wwwa.lanzoux.com/iXXXX",
+        {
+          "zt": 0,
+          "dom": "https://dl.cdn.com",
+          "url": "?token",
+          "inf": "a.zip"
+        }
+      ],
+      "expect": []
+    },
+    {
+      "name": "字段缺失不产出",
+      "call": "extractFromBody",
+      "args": [
+        "https://wwwa.lanzoux.com/ajaxm.php?file=1",
+        "https://wwwa.lanzoux.com/iXXXX",
+        {
+          "zt": 1,
+          "dom": "https://dl.cdn.com",
+          "inf": "a.zip"
+        }
+      ],
+      "expect": []
+    },
+    {
+      "name": "非 ajaxm.php URL 不触发",
+      "call": "extractFromBody",
+      "args": [
+        "https://x.com/other",
+        "",
+        {
+          "zt": 1,
+          "dom": "https://d",
+          "url": "?t",
+          "inf": "a"
+        }
+      ],
+      "expect": []
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 嗅探规则字段文档 / Sniff rule reference
+    url: https://fluxdown.zerx.dev/docs/zh/browser-extension/sniff-rules/
+    about: 规则每个字段的含义与示例。/ What every rule field means, with examples.

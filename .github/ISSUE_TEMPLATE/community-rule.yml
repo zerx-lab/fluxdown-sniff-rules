@@ -1,0 +1,51 @@
+name: 提交社区规则 / Submit a community rule
+description: 把在扩展「本地规则」里验证过的嗅探规则贡献给所有用户。/ Share a sniff rule you verified as a local rule.
+title: "[规则] "
+labels: [community-rule]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提交后机器人会自动校验并生成 Pull Request；校验失败会在下方回复原因，编辑本 Issue 即可重新校验。
+        After submitting, a bot validates the rule and opens a pull request; edit this issue to re-run validation.
+
+        字段说明 / Field reference: https://fluxdown.zerx.dev/docs/zh/browser-extension/sniff-rules/
+  - type: textarea
+    id: rule
+    attributes:
+      label: 规则 JSON / Rule JSON
+      description: 在扩展「本地规则」行点击「提交到社区」会自动填好；也可粘贴单条规则、规则数组或导出的规则文件。`local.*` 会自动改为 `community.*`。
+      render: json
+    validations:
+      required: true
+  - type: input
+    id: page
+    attributes:
+      label: 示例页面 / Example page
+      description: 规则生效的一个真实页面地址。/ A real page where the rule applies.
+      placeholder: https://www.example.com/video/123
+    validations:
+      required: true
+  - type: textarea
+    id: samples
+    attributes:
+      label: 示例资源地址 / Example resource URLs
+      description: 规则应识别（或忽略）的资源地址，每行一个，可选。/ Resource URLs the rule should match, one per line (optional).
+  - type: textarea
+    id: tests
+    attributes:
+      label: 测试用例 / Test cases
+      description: 可选。JSON 数组，格式见文档「规则测试」一节；有测试的规则审核更快。/ Optional JSON array; see "Rule tests" in the docs.
+      render: json
+  - type: textarea
+    id: notes
+    attributes:
+      label: 说明 / Notes
+      description: 规则解决什么问题、为什么这样写。/ What the rule fixes and why.
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 确认 / Confirm
+      options:
+        - label: 我已在扩展「本地规则」中验证该规则有效，且站点范围尽量小。/ I verified it as a local rule and kept the site scope minimal.
+          required: true

@@ -1,0 +1,63 @@
+name: publish
+
+# main 上规则源变化时签发新包；每日定时任务在有效期剩余不足 14 天时续签社区包与吊销列表。
+on:
+  push:
+    branches: [main]
+    paths:
+      - rules/**
+      - revocations.json
+      - vendor/**
+      - scripts/**
+      - keys.json
+  schedule:
+    - cron: "23 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'zerx-lab/fluxdown-sniff-rules'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Script tests
+        run: node --test scripts/*.test.mjs
+      - name: Validate, test and sign
+        env:
+          SNIFF_SIGNING_KEY: ${{ secrets.SNIFF_SIGNING_KEY }}
+          SNIFF_SIGNING_KEY_ID: ${{ secrets.SNIFF_SIGNING_KEY_ID }}
+        run: node scripts/build.mjs --sign --message "$RUNNER_TEMP/message.txt"
+      - name: Commit dist
+        id: commit
+        run: |
+          git add dist
+          if git diff --cached --quiet; then
+            echo "Nothing to publish."
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -F "$RUNNER_TEMP/message.txt"
+          git push origin HEAD:main
+          echo "published=true" >> "$GITHUB_OUTPUT"
+      - name: Purge jsDelivr cache
+        if: steps.commit.outputs.published == 'true'
+        run: |
+          for file in official community revocations; do
+            curl -fsS "https://purge.jsdelivr.net/gh/zerx-lab/fluxdown-sniff-rules@main/dist/${file}.json" \
+              || echo "::warning::jsDelivr purge failed for ${file}.json (cache expires on its own)"
+          done

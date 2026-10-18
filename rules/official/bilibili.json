@@ -1,0 +1,133 @@
+{
+  "rules": [
+    {
+      "id": "official.bilibili.track",
+      "version": 1,
+      "tier": "official",
+      "title": "哔哩哔哩：按 m4s 分片编号区分音轨 / 视频轨（CDN 域名）",
+      "stage": "track",
+      "match": {
+        "host": [
+          "bilibili.com",
+          "bilivideo.com",
+          "bilivideo.cn",
+          "acgvideo.com"
+        ]
+      },
+      "action": {
+        "kind": "track",
+        "source": "filenameOrUrl",
+        "pattern": "[-_](\\d{4,6})\\.m4s(?:[?#]|$)",
+        "group": 1,
+        "audio": [
+          "30216",
+          "30232",
+          "30280",
+          "30250",
+          "30251"
+        ],
+        "fallback": "video"
+      }
+    },
+    {
+      "id": "official.bilibili.track-page",
+      "version": 1,
+      "tier": "official",
+      "title": "哔哩哔哩：按 m4s 分片编号区分音轨 / 视频轨（站内页面）",
+      "stage": "track",
+      "match": {
+        "pageHost": [
+          "bilibili.com",
+          "bilivideo.com",
+          "bilivideo.cn",
+          "acgvideo.com"
+        ]
+      },
+      "action": {
+        "kind": "track",
+        "source": "filenameOrUrl",
+        "pattern": "[-_](\\d{4,6})\\.m4s(?:[?#]|$)",
+        "group": 1,
+        "audio": [
+          "30216",
+          "30232",
+          "30280",
+          "30250",
+          "30251"
+        ],
+        "fallback": "video"
+      }
+    }
+  ],
+  "tests": [
+    {
+      "name": "30280 判 audio（mime video/mp4）",
+      "call": "trackKind",
+      "args": [
+        {
+          "url": "https://upos-sz-mirrorcos.bilivideo.com/x/xxx-1-30280.m4s",
+          "mime": "video/mp4",
+          "pageUrl": "https://www.bilibili.com/video/BV1"
+        }
+      ],
+      "expect": "audio"
+    },
+    {
+      "name": "30080 判 video",
+      "call": "trackKind",
+      "args": [
+        {
+          "url": "https://upos-sz-mirrorcos.bilivideo.com/x/xxx-1-30080.m4s",
+          "mime": "video/mp4",
+          "pageUrl": "https://www.bilibili.com/video/BV1"
+        }
+      ],
+      "expect": "video"
+    },
+    {
+      "name": "仅 host 命中（无 pageUrl）",
+      "call": "trackKind",
+      "args": [
+        {
+          "url": "https://upos-sz-mirrorcos.bilivideo.com/x/xxx-1-30232.m4s",
+          "pageUrl": ""
+        }
+      ],
+      "expect": "audio"
+    },
+    {
+      "name": "仅 pageHost 命中",
+      "call": "trackKind",
+      "args": [
+        {
+          "url": "https://cdn.example.net/x/xxx-1-30216.m4s",
+          "pageUrl": "https://www.bilibili.com/video/BV1"
+        }
+      ],
+      "expect": "audio"
+    },
+    {
+      "name": "notbilibili.com 不命中站点规则",
+      "call": "trackKind",
+      "args": [
+        {
+          "url": "https://notbilibili.com/x/xxx-1-30280.m4s",
+          "mime": "video/mp4",
+          "pageUrl": "https://notbilibili.com/"
+        }
+      ],
+      "expect": "video"
+    },
+    {
+      "name": "notbilibili.com 无 MIME 不判定",
+      "call": "trackKind",
+      "args": [
+        {
+          "url": "https://notbilibili.com/x/xxx-1-30280.m4s",
+          "pageUrl": "https://notbilibili.com/"
+        }
+      ],
+      "expect": null
+    }
+  ]
+}
