@@ -1,20 +1,10 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, test } from "node:test";
 import { FIELDS, fileSlug, mergeRuleFile, parseIssueForm, processSubmission, toCommunityRules } from "./submit.mjs";
-
-const ROOT = new URL("..", import.meta.url).pathname;
-
-function scratchRepo() {
-  const dir = mkdtempSync(join(tmpdir(), "sniff-submit-"));
-  for (const entry of ["rules", "vendor", "scripts", "revocations.json", "keys.json"]) {
-    cpSync(join(ROOT, entry), join(dir, entry), { recursive: true });
-  }
-  return dir;
-}
+import { ROOT, scratchRepo } from "./test-support.mjs";
 
 const localRule = {
   id: "local.example-video",

@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createPublicKey, generateKeyPairSync, verify } from "node:crypto";
-import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, test } from "node:test";
 import {
@@ -18,17 +17,7 @@ import {
   signEnvelope,
   validateRules,
 } from "./lib.mjs";
-
-const ROOT = new URL("..", import.meta.url).pathname;
-
-/** 复制一份可随意改动的仓库（规则、吊销、vendor、脚本、公钥）。 */
-function scratchRepo() {
-  const dir = mkdtempSync(join(tmpdir(), "sniff-rules-"));
-  for (const entry of ["rules", "vendor", "scripts", "revocations.json", "keys.json"]) {
-    cpSync(join(ROOT, entry), join(dir, entry), { recursive: true });
-  }
-  return dir;
-}
+import { ROOT, scratchRepo } from "./test-support.mjs";
 
 const siteRule = (overrides = {}) => ({
   id: "community.example.video",
