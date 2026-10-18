@@ -6,9 +6,9 @@
   "rules": [
     {
       "id": "community.e2e-test.xyz-video",
-      "version": 2,
+      "version": 3,
       "tier": "community",
-      "title": "E2E：example.com 的 .xyz 视频（v2）",
+      "title": "E2E v3",
       "stage": "response",
       "match": {
         "host": [
