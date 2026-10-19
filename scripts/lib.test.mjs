@@ -14,7 +14,9 @@ import {
   parseRevocations,
   parseRuleFile,
   runTests,
+  sequenceGuardErrors,
   signEnvelope,
+  trustedKeys,
   validateRules,
 } from "./lib.mjs";
 import { scratchRepo } from "./test-support.mjs";
@@ -135,6 +137,8 @@ describe("规则测试", () => {
   });
 });
 
+const sec = (iso) => Math.floor(Date.parse(iso) / 1000);
+
 describe("签发判定", () => {
   const now = Date.parse("2026-06-01T00:00:00Z");
   const bodyOf = (doc) => doc.rules;
@@ -147,7 +151,7 @@ describe("签发判定", () => {
 
   test("首次发布 sequence 为 1", () => {
     const meta = nextMeta({ previous: null, body: [], bodyOf, expires: false, now });
-    assert.equal(meta.sequence, 1);
+    assert.equal(meta.sequence, Math.floor(now / 1000));
     assert.equal(meta.expiresAt, undefined);
   });
 
@@ -158,10 +162,38 @@ describe("签发判定", () => {
 
   test("内容变化或有效期将尽时 sequence 加一并重置有效期", () => {
     const changed = nextMeta({ previous: published([1], EXPIRY_MS), body: [2], bodyOf, expires: true, now });
-    assert.equal(changed.sequence, 8);
+    assert.equal(changed.sequence, Math.floor(now / 1000));
     assert.equal(changed.expiresAt, new Date(now + EXPIRY_MS).toISOString());
     const renewed = nextMeta({ previous: published([1], RENEW_WITHIN_MS), body: [1], bodyOf, expires: true, now });
-    assert.equal(renewed.sequence, 8);
+    assert.equal(renewed.sequence, Math.floor(now / 1000));
+  });
+
+  test("上一版 sequence 不小于当前秒数时按 +1 递增", () => {
+    const ahead = Math.floor(now / 1000) + 500;
+    const meta = nextMeta({ previous: { ...published([1], EXPIRY_MS), sequence: ahead }, body: [2], bodyOf, expires: true, now });
+    assert.equal(meta.sequence, ahead + 1);
+  });
+
+  test("sequence 超出 2^53 - 1 时拒绝签发", () => {
+    const previous = { ...published([1], EXPIRY_MS), sequence: Number.MAX_SAFE_INTEGER };
+    assert.throws(() => nextMeta({ previous, body: [2], bodyOf, expires: true, now }), /2\^53/);
+  });
+
+  test("已发布 sequence 超前当前时间或非整数时 CI 守卫报错", () => {
+    const dir = scratchRepo();
+    const write = (kind, sequence) => {
+      mkdirSync(join(dir, "dist"), { recursive: true });
+      const payload = Buffer.from(JSON.stringify({ sequence })).toString("base64");
+      writeFileSync(join(dir, "dist", `${kind}.json`), JSON.stringify({ payload, signatures: [] }));
+    };
+    write("official", Math.floor(now / 1000));
+    assert.deepEqual(sequenceGuardErrors(dir, now), []);
+    write("revocations", Math.floor(now / 1000) + 10 * 86400);
+    write("community", 1.5);
+    const errors = sequenceGuardErrors(dir, now);
+    assert.equal(errors.length, 2);
+    assert.match(errors.join("\n"), /revocations\.json.*超前/);
+    assert.match(errors.join("\n"), /community\.json.*整数/);
   });
 
   test("官方包没有有效期，内容不变就永不重签", () => {
@@ -179,8 +211,7 @@ describe("签名", () => {
     const payload = Buffer.from('{"a":1}');
     const envelope = JSON.parse(
       signEnvelope(payload, {
-        pem: privateKey.export({ format: "pem", type: "pkcs8" }),
-        keyId: "k1",
+        signers: [{ pem: privateKey.export({ format: "pem", type: "pkcs8" }), keyId: "k1" }],
         trusted: { k1: rawPublic(publicKey) },
       }),
     );
@@ -189,14 +220,36 @@ describe("签名", () => {
     assert.ok(verify(null, payload, publicKey, Buffer.from(envelope.signatures[0].sig, "base64")));
   });
 
+  test("轮换期可新旧并签，两个签名都能验过", () => {
+    const a = pair();
+    const b = pair();
+    const pem = (p) => p.privateKey.export({ format: "pem", type: "pkcs8" });
+    const payload = Buffer.from("x");
+    const envelope = JSON.parse(
+      signEnvelope(payload, {
+        signers: [
+          { pem: pem(a), keyId: "old" },
+          { pem: pem(b), keyId: "new" },
+        ],
+        trusted: { old: rawPublic(a.publicKey), new: rawPublic(b.publicKey) },
+      }),
+    );
+    assert.deepEqual(envelope.signatures.map((s) => s.keyId), ["old", "new"]);
+    assert.ok(verify(null, payload, a.publicKey, Buffer.from(envelope.signatures[0].sig, "base64")));
+    assert.ok(verify(null, payload, b.publicKey, Buffer.from(envelope.signatures[1].sig, "base64")));
+  });
+
+  test("keys.json 同时登记发布与吊销公钥", () => {
+    assert.deepEqual(trustedKeys({ release: { a: "1" }, revocation: { b: "2" } }), { a: "1", b: "2" });
+  });
+
   test("私钥与登记的公钥不符时拒绝签发", () => {
     const signer = pair();
     const other = pair();
     assert.throws(
       () =>
         signEnvelope(Buffer.from("x"), {
-          pem: signer.privateKey.export({ format: "pem", type: "pkcs8" }),
-          keyId: "k1",
+          signers: [{ pem: signer.privateKey.export({ format: "pem", type: "pkcs8" }), keyId: "k1" }],
           trusted: { k1: rawPublic(other.publicKey) },
         }),
       /不匹配/,
@@ -231,7 +284,7 @@ describe("build.mjs 端到端", () => {
     build("2026-06-01T00:00:00Z");
     const official = payloadOf("official");
     assert.equal(official.packId, "official");
-    assert.equal(official.sequence, 1);
+    assert.equal(official.sequence, sec("2026-06-01T00:00:00Z"));
     assert.ok(official.rules.length > 0);
     assert.equal(payloadOf("community").rules.length, 0);
     assert.equal(payloadOf("revocations").expiresAt, "2026-07-01T00:00:00.000Z");
@@ -243,15 +296,15 @@ describe("build.mjs 端到端", () => {
       JSON.stringify({ rules: [siteRule()] }),
     );
     build("2026-06-03T00:00:00Z");
-    assert.equal(payloadOf("official").sequence, 1);
-    assert.equal(payloadOf("community").sequence, 2);
+    assert.equal(payloadOf("official").sequence, sec("2026-06-01T00:00:00Z"));
+    assert.equal(payloadOf("community").sequence, sec("2026-06-03T00:00:00Z"));
     assert.equal(payloadOf("community").rules[0].id, "community.misc.video");
-    assert.equal(payloadOf("revocations").sequence, 1);
+    assert.equal(payloadOf("revocations").sequence, sec("2026-06-01T00:00:00Z"));
 
     // 吊销列表有效期剩余不足 14 天时由定时任务续签。
     build("2026-06-20T00:00:00Z");
-    assert.equal(payloadOf("revocations").sequence, 2);
-    assert.equal(payloadOf("community").sequence, 3);
+    assert.equal(payloadOf("revocations").sequence, sec("2026-06-20T00:00:00Z"));
+    assert.equal(payloadOf("community").sequence, sec("2026-06-20T00:00:00Z"));
   });
 
   test("校验失败时不签发", () => {

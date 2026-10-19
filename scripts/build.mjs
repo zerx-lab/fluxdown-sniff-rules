@@ -5,8 +5,10 @@
 //       校验 + 跑规则测试 + 列出将要重新签发的文档；不签名、不写盘。
 //   node scripts/build.mjs --sign [--message <file>]
 //       额外签名并写入 dist/{official,community,revocations}.json。
-//       私钥取环境变量 SNIFF_SIGNING_KEY（PKCS#8 PEM），keyId 取 SNIFF_SIGNING_KEY_ID。
+//       私钥取环境变量 SNIFF_SIGNING_KEY（PKCS#8 PEM），keyId 取 SNIFF_SIGNING_KEY_ID；
+//       密钥轮换期可再给 SNIFF_SIGNING_KEY_NEXT / SNIFF_SIGNING_KEY_ID_NEXT，信封同时带两个签名。
 //       --message 把发布摘要写到文件，供 CI 作提交信息。
+//   --only <official|community|revocations>  只处理这一份文档（紧急吊销时用吊销密钥只签吊销列表）。
 //   --root <dir>  仓库根（默认当前目录）；--now <ISO>  固定当前时间（测试用）。
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -17,7 +19,9 @@ import {
   nextMeta,
   payloadLimit,
   readPublished,
+  sequenceGuardErrors,
   signEnvelope,
+  trustedKeys,
 } from "./lib.mjs";
 
 function arg(name) {
@@ -37,6 +41,12 @@ const { sources, errors } = checkRepository(root);
 if (errors.length > 0) {
   console.error(`校验失败（${errors.length} 项）：`);
   for (const error of errors) console.error(`  - ${error}`);
+  process.exit(1);
+}
+const guard = sequenceGuardErrors(root, now);
+if (guard.length > 0) {
+  console.error("已发布文档的 sequence 异常：");
+  for (const error of guard) console.error(`  - ${error}`);
   process.exit(1);
 }
 console.log(
@@ -70,7 +80,13 @@ const docs = [
 ];
 
 const planned = [];
+const only = arg("--only");
+if (only !== undefined && !docs.some((doc) => doc.kind === only)) {
+  console.error(`--only 必须是 ${docs.map((doc) => doc.kind).join(" | ")}`);
+  process.exit(2);
+}
 for (const doc of docs) {
+  if (only !== undefined && doc.kind !== only) continue;
   const previous = readPublished(join(dist, `${doc.kind}.json`));
   const meta = nextMeta({ previous, body: doc.body, bodyOf: doc.bodyOf, expires: doc.expires, now });
   if (meta === null) {
@@ -92,16 +108,20 @@ if (planned.length === 0) {
   process.exit(0);
 }
 
-const pem = process.env.SNIFF_SIGNING_KEY;
-const keyId = process.env.SNIFF_SIGNING_KEY_ID;
-if (!pem || !keyId) {
-  console.error("缺少 SNIFF_SIGNING_KEY / SNIFF_SIGNING_KEY_ID");
-  process.exit(1);
+const signers = [];
+for (const suffix of ["", "_NEXT"]) {
+  const pem = process.env[`SNIFF_SIGNING_KEY${suffix}`];
+  const keyId = process.env[suffix === "" ? "SNIFF_SIGNING_KEY_ID" : "SNIFF_SIGNING_KEY_ID_NEXT"];
+  if (suffix === "" && (!pem || !keyId)) {
+    console.error("缺少 SNIFF_SIGNING_KEY / SNIFF_SIGNING_KEY_ID");
+    process.exit(1);
+  }
+  if (pem && keyId) signers.push({ pem, keyId });
 }
-const trusted = JSON.parse(readFileSync(join(root, "keys.json"), "utf8")).release;
+const trusted = trustedKeys(JSON.parse(readFileSync(join(root, "keys.json"), "utf8")));
 mkdirSync(dist, { recursive: true });
 for (const doc of planned) {
-  writeFileSync(join(dist, `${doc.kind}.json`), signEnvelope(doc.payload, { pem, keyId, trusted }));
+  writeFileSync(join(dist, `${doc.kind}.json`), signEnvelope(doc.payload, { signers, trusted }));
 }
 const summary = planned.map((doc) => `${doc.kind} #${doc.meta.sequence}`).join(", ");
 console.log(`已签发：${summary}`);

@@ -46,6 +46,8 @@ jobs:
         env:
           SNIFF_SIGNING_KEY: ${{ secrets.SNIFF_SIGNING_KEY }}
           SNIFF_SIGNING_KEY_ID: ${{ secrets.SNIFF_SIGNING_KEY_ID }}
+          SNIFF_SIGNING_KEY_NEXT: ${{ secrets.SNIFF_SIGNING_KEY_NEXT }}
+          SNIFF_SIGNING_KEY_ID_NEXT: ${{ secrets.SNIFF_SIGNING_KEY_ID_NEXT }}
         run: node scripts/build.mjs --sign --message "$RUNNER_TEMP/sign.txt"
       - name: Commit
         id: commit

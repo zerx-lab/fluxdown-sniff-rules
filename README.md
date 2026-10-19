@@ -130,9 +130,21 @@ node fluxdown-sniff-rules/scripts/check-source.mjs --file sniff-rules.json --rep
 
 ## 发布与签名
 
-- 社区包与吊销列表有效期 30 天，剩余不足 14 天时续签；每次内容变化或续签 `sequence` 加一，桌面端只接受更大的 `sequence`。
+- 社区包与吊销列表有效期 30 天，剩余不足 14 天时续签。`sequence = max(上一版 + 1, floor(当前 Unix 秒))`：随时间单调上升，必须 ≤ 2^53 − 1（桌面端 u64、扩展 `Number.isInteger`）；桌面端只接受更大的 `sequence`。`build.mjs --check`（CI `check`）会在已发布文档的 `sequence` 非整数或超前当前时间一天以上时失败。
 - 签名私钥只在仓库 Secret `SNIFF_SIGNING_KEY`（keyId `SNIFF_SIGNING_KEY_ID`），仅 `publish` 读取；签名后用 `keys.json` 回验。作者不持有任何密钥。
-- 吊销专用密钥离线冷存，供紧急情况在 CI 之外签发吊销列表。
+- `keys.json` 分 `release`（签发三种文档）与 `revocation`（只签吊销列表）两组公钥，须与桌面端 `native/agent/src/sniff_rules/keys.rs` 一致。
+- 密钥轮换：先发布内置新公钥的桌面版本，再把新私钥放进 Secret `SNIFF_SIGNING_KEY_NEXT` / `SNIFF_SIGNING_KEY_ID_NEXT`，信封同时带新旧两个签名（桌面端任一签名验过即接受），旧版本客户端淘汰后再撤下旧密钥。
+
+### 紧急吊销流程
+
+发现某条规则有害、需立即撤回时（不必等定时任务，也不依赖 CI 是否可用）：
+
+1. 在 `revocations.json` 的 `entries` 里加入该规则 id（及 `versions` 范围，格式见现有校验错误提示），提交到 `main`；`publish` 会立即校验并用发布密钥签发。
+2. CI 不可用 / 发布密钥疑似泄露时，在离线机器上用**吊销密钥**签发：
+   `SNIFF_SIGNING_KEY="$(cat revocation.pem)" SNIFF_SIGNING_KEY_ID=revocation-2026-1 node scripts/build.mjs --sign --only revocations`，
+   把更新后的 `dist/revocations.json` 与 `revocations.json` 一并提交到 `main`。`--only revocations` 必不可少：桌面端只认吊销密钥签发的吊销列表，签其它文档会被拒收。
+3. 提交后 `publish` 看到内容一致，不会重复签发；`sequence` 取时间戳，后续发布始终更大。
+4. 若吊销密钥本身泄露：用发布密钥发布带新吊销公钥的桌面版本，并在 `keys.json` 同步更新。
 
 ## 本地运行
 

@@ -499,7 +499,9 @@ export function readPublished(path) {
 
 /**
  * 决定一份文档是否需要重新签发：内容变化、从未发布、或有效期剩余不足 RENEW_WITHIN_MS。
- * 重新签发时 sequence 加一（agent 只接受更大的 sequence）。返回 null 表示沿用已发布版本。
+ * sequence = max(上一版 + 1, floor(now / 1000))：随时间单调上升，即使发布历史丢失也不会回退；
+ * agent 只接受更大的 sequence（u64），扩展用 Number.isInteger，故必须 ≤ 2^53 - 1。
+ * 返回 null 表示沿用已发布版本。
  */
 export function nextMeta({ previous, body, bodyOf, expires, now }) {
   const renew =
@@ -508,12 +510,30 @@ export function nextMeta({ previous, body, bodyOf, expires, now }) {
     !(Date.parse(previous.expiresAt) - now > RENEW_WITHIN_MS);
   const changed = previous === null || JSON.stringify(bodyOf(previous)) !== JSON.stringify(body);
   if (!changed && !renew) return null;
-  const meta = {
-    sequence: previous === null ? 1 : previous.sequence + 1,
-    issuedAt: new Date(now).toISOString(),
-  };
+  const sequence = Math.max(previous === null ? 1 : previous.sequence + 1, Math.floor(now / 1000));
+  if (!Number.isSafeInteger(sequence)) throw new Error(`sequence ${sequence} 超出 2^53 - 1`);
+  const meta = { sequence, issuedAt: new Date(now).toISOString() };
   if (expires) meta.expiresAt = new Date(now + EXPIRY_MS).toISOString();
   return meta;
+}
+
+/** 已发布文档的 sequence 必须是安全整数，且不能超前当前时间一天以上（否则会让后续发布被客户端当作回滚）。 */
+export function sequenceGuardErrors(root, now) {
+  const errors = [];
+  const ceiling = Math.floor(now / 1000) + DAY_MS / 1000;
+  for (const kind of ["official", "community", "revocations"]) {
+    const published = readPublished(join(root, "dist", `${kind}.json`));
+    if (published === null) continue;
+    const { sequence } = published;
+    if (!Number.isSafeInteger(sequence) || sequence < 1) errors.push(`dist/${kind}.json：sequence ${sequence} 不是 1..2^53-1 的整数`);
+    else if (sequence > ceiling) errors.push(`dist/${kind}.json：sequence ${sequence} 超前当前时间（上限 ${ceiling}）`);
+  }
+  return errors;
+}
+
+/** keys.json 中可用于验签的全部公钥（发布 + 吊销）。 */
+export function trustedKeys(keysJson) {
+  return { ...(keysJson.release ?? {}), ...(keysJson.revocation ?? {}) };
 }
 
 /** 载荷大小上限（字节），与 agent 一致。 */
@@ -523,22 +543,23 @@ export function payloadLimit(kind) {
 
 /**
  * 签名并封装为信封（与 FluxDown scripts/sniff-rules/sign.ts、agent verify.rs 同格式）。
- * 签名后用 keys.json 中同 keyId 的公钥回验，防止 CI 配错私钥发出客户端不认的包。
+ * signers 可有多把私钥（密钥轮换期新旧并签；agent 只要任一签名由允许的公钥验过即接受）。
+ * 每个签名都用 keys.json 中同 keyId 的公钥回验，防止 CI 配错私钥发出客户端不认的包。
  */
-export function signEnvelope(payloadBytes, { pem, keyId, trusted }) {
-  const publicRaw = trusted[keyId];
-  if (typeof publicRaw !== "string") throw new Error(`keys.json 中没有 keyId ${keyId}`);
-  const privateKey = createPrivateKey(pem);
-  const sig = sign(null, payloadBytes, privateKey);
-  const publicKey = createPublicKey({
-    key: { kty: "OKP", crv: "Ed25519", x: Buffer.from(publicRaw, "base64").toString("base64url") },
-    format: "jwk",
+export function signEnvelope(payloadBytes, { signers, trusted }) {
+  if (signers.length === 0) throw new Error("没有签名密钥");
+  const signatures = signers.map(({ pem, keyId }) => {
+    const publicRaw = trusted[keyId];
+    if (typeof publicRaw !== "string") throw new Error(`keys.json 中没有 keyId ${keyId}`);
+    const sig = sign(null, payloadBytes, createPrivateKey(pem));
+    const publicKey = createPublicKey({
+      key: { kty: "OKP", crv: "Ed25519", x: Buffer.from(publicRaw, "base64").toString("base64url") },
+      format: "jwk",
+    });
+    if (!verify(null, payloadBytes, publicKey, sig)) {
+      throw new Error(`签名私钥与 keys.json 中 ${keyId} 的公钥不匹配`);
+    }
+    return { keyId, sig: sig.toString("base64") };
   });
-  if (!verify(null, payloadBytes, publicKey, sig)) {
-    throw new Error(`签名私钥与 keys.json 中 ${keyId} 的公钥不匹配`);
-  }
-  return JSON.stringify({
-    payload: payloadBytes.toString("base64"),
-    signatures: [{ keyId, sig: sig.toString("base64") }],
-  });
+  return JSON.stringify({ payload: payloadBytes.toString("base64"), signatures });
 }
