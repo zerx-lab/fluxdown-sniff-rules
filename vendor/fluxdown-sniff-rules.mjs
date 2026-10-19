@@ -993,9 +993,9 @@ var builtin_default = {
 var official_default = {
   format: "fluxdown-sniff-pack",
   packId: "official",
-  sequence: 1,
+  sequence: 1792374964,
   engine: 1,
-  issuedAt: "2026-10-18T06:24:42.796Z",
+  issuedAt: "2026-10-19T01:56:04.962Z",
   rules: [
     {
       id: "official.bilibili.track",
@@ -1069,6 +1069,50 @@ var official_default = {
       action: {
         kind: "title",
         selector: '[data-e2e="video-desc"]'
+      }
+    },
+    {
+      id: "official.douyin.track",
+      version: 1,
+      tier: "official",
+      title: "抖音：按 media-audio / media-video 路径区分分离的音轨 / 视频轨（CDN 域名）",
+      stage: "track",
+      match: {
+        host: [
+          "douyinvod.com"
+        ]
+      },
+      action: {
+        kind: "track",
+        source: "filenameOrUrl",
+        pattern: "media-(audio|video)-",
+        group: 1,
+        audio: [
+          "audio"
+        ],
+        fallback: "video"
+      }
+    },
+    {
+      id: "official.douyin.track-page",
+      version: 1,
+      tier: "official",
+      title: "抖音：按 media-audio / media-video 路径区分分离的音轨 / 视频轨（站内页面）",
+      stage: "track",
+      match: {
+        pageHost: [
+          "douyin.com"
+        ]
+      },
+      action: {
+        kind: "track",
+        source: "filenameOrUrl",
+        pattern: "media-(audio|video)-",
+        group: 1,
+        audio: [
+          "audio"
+        ],
+        fallback: "video"
       }
     },
     {
