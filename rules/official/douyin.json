@@ -15,9 +15,101 @@
         "kind": "title",
         "selector": "[data-e2e=\"video-desc\"]"
       }
+    },
+    {
+      "id": "official.douyin.track",
+      "version": 1,
+      "tier": "official",
+      "title": "抖音：按 media-audio / media-video 路径区分分离的音轨 / 视频轨（CDN 域名）",
+      "stage": "track",
+      "match": {
+        "host": [
+          "douyinvod.com"
+        ]
+      },
+      "action": {
+        "kind": "track",
+        "source": "filenameOrUrl",
+        "pattern": "media-(audio|video)-",
+        "group": 1,
+        "audio": [
+          "audio"
+        ],
+        "fallback": "video"
+      }
+    },
+    {
+      "id": "official.douyin.track-page",
+      "version": 1,
+      "tier": "official",
+      "title": "抖音：按 media-audio / media-video 路径区分分离的音轨 / 视频轨（站内页面）",
+      "stage": "track",
+      "match": {
+        "pageHost": [
+          "douyin.com"
+        ]
+      },
+      "action": {
+        "kind": "track",
+        "source": "filenameOrUrl",
+        "pattern": "media-(audio|video)-",
+        "group": 1,
+        "audio": [
+          "audio"
+        ],
+        "fallback": "video"
+      }
     }
   ],
   "tests": [
+    {
+      "name": "分离音轨判 audio（服务端标成 video/mp4）",
+      "call": "trackKind",
+      "args": [
+        {
+          "url": "https://v26-weba.douyinvod.com/x/6ad5c991/video/tos/cn/tos-cn-ve-15/abc/media-audio-und-mp4a/?a=6383&mime_type=video_mp4",
+          "mime": "video/mp4",
+          "pageUrl": "https://www.douyin.com/jingxuan?modal_id=1"
+        }
+      ],
+      "expect": "audio"
+    },
+    {
+      "name": "分离视频轨判 video",
+      "call": "trackKind",
+      "args": [
+        {
+          "url": "https://v26-weba.douyinvod.com/x/6ad5c991/video/tos/cn/tos-cn-vd-0026/abc/media-video-hvc1/?a=6383&mime_type=video_mp4",
+          "mime": "video/mp4",
+          "pageUrl": "https://www.douyin.com/jingxuan?modal_id=1"
+        }
+      ],
+      "expect": "video"
+    },
+    {
+      "name": "其它 CDN 域名在抖音页面上同样按路径判轨",
+      "call": "trackKind",
+      "args": [
+        {
+          "url": "https://v3-dy-o.zjcdn.com/x/video/tos/cn/abc/media-audio-und-mp4a/?a=6383",
+          "mime": "video/mp4",
+          "pageUrl": "https://www.douyin.com/video/7300000000000000000"
+        }
+      ],
+      "expect": "audio"
+    },
+    {
+      "name": "音视频合一的直链仍是 video",
+      "call": "trackKind",
+      "args": [
+        {
+          "url": "https://v26-web.douyinvod.com/x/6ad5c991/video/tos/cn/tos-cn-ve-15/abc/?a=6383&mime_type=video_mp4",
+          "mime": "video/mp4",
+          "pageUrl": "https://www.douyin.com/video/7300000000000000000"
+        }
+      ],
+      "expect": "video"
+    },
     {
       "name": "抖音页面取视频描述作标题",
       "call": "pageHints",
