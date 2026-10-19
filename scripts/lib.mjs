@@ -76,7 +76,10 @@ export function parseClaim(claim) {
 export function withinClaims(pattern, claims) {
   const parsed = parseHostPattern(pattern);
   if (!parsed) return false;
-  return claims.some((claim) => hostMatchesPattern(parsed.domain, { domain: claim, exact: false }));
+  return claims.some((claim) => {
+    const scope = parseHostPattern(claim);
+    return scope !== null && hostMatchesPattern(parsed.domain, scope);
+  });
 }
 
 function claimsOverlap(a, b) {
@@ -420,9 +423,15 @@ export function runTests(rules, revocationEntries, tests) {
   for (const test of tests) {
     const engine = compileRules({
       packs: [
-        BUILTIN_PACK,
-        makePack("official", rules.official, meta),
-        makePack("community", rules.community, { ...meta, expiresAt: new Date(TEST_NOW + EXPIRY_MS).toISOString() }),
+        { tier: "builtin", pack: BUILTIN_PACK },
+        { tier: "official", pack: makePack("official", rules.official, meta) },
+        {
+          tier: "community",
+          pack: makePack("community", rules.community, {
+            ...meta,
+            expiresAt: new Date(TEST_NOW + EXPIRY_MS).toISOString(),
+          }),
+        },
       ],
       overrides: {},
       revocations,
