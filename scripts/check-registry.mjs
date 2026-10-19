@@ -73,7 +73,7 @@ export async function checkRegistryChange(root, headText, { author, files = [], 
   if (lines.length > 0) out.push(...lines, "");
   if (errors.length > 0) out.push("**需要修正：**", ...errors.map((e) => `- ${e}`), "");
   if (warnings.length > 0) out.push("**请维护者留意：**", ...warnings.map((w) => `- ${w}`), "");
-  out.push("修正后向本 PR 推送新的提交（或在登记仓库发布新 Release 后重新运行检查）即可重新检查。说明：https://fluxdown.zerx.dev/docs/zh/contributing/sniff-rules/");
+  out.push("修正后向本 PR 推送新的提交（或在登记仓库发布新 Release 后重新运行检查）即可重新检查。说明：https://fluxdown.com/docs/zh/contributing/sniff-rules/");
   return { ok: errors.length === 0, comment: `${out.join("\n")}\n` };
 }
 

@@ -7,13 +7,13 @@ body:
     attributes:
       value: |
         这是**一次性贡献**的通道：规则会以 `community.misc.*` 收进本仓库，之后的修改也要再提 Issue，由维护者审核。
-        打算长期维护某些站点的规则？请改用**自己的规则仓库**：登记一次，之后发 Release 自动收录，无需每次审核——见[维护自己的规则仓库](https://fluxdown.zerx.dev/docs/zh/contributing/sniff-rules/#维护自己的规则仓库)。
+        打算长期维护某些站点的规则？请改用**自己的规则仓库**：登记一次，之后发 Release 自动收录，无需每次审核——见[维护自己的规则仓库](https://fluxdown.com/docs/zh/contributing/sniff-rules/#维护自己的规则仓库)。
         已被登记仓库认领的站点不接受此处提交，请向对应仓库贡献。
 
         This is the one-off channel (rules land as `community.misc.*`). To maintain rules long-term, publish them from your own repository and register it once — see the contributing guide.
 
         提交后机器人会自动校验并生成 Pull Request；校验失败会在下方回复原因，编辑本 Issue 即可重新校验。
-        字段说明 / Field reference: https://fluxdown.zerx.dev/docs/zh/browser-extension/sniff-rules/
+        字段说明 / Field reference: https://fluxdown.com/docs/zh/browser-extension/sniff-rules/
   - type: textarea
     id: rule
     attributes:

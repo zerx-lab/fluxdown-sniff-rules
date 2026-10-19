@@ -87,7 +87,7 @@ export async function syncFailIssues(repoFullName, results, { token }) {
       "",
       ...failure.errors.map((error) => `- ${error}`),
       "",
-      "说明见 https://fluxdown.zerx.dev/docs/zh/contributing/sniff-rules/",
+      "说明见 https://fluxdown.com/docs/zh/contributing/sniff-rules/",
     ].join("\n");
     const existing = byTitle.get(failIssueTitle(ns));
     if (!existing) {

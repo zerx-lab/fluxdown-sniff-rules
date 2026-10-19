@@ -333,7 +333,7 @@ function renderComment(result, issue) {
   }
   lines.push(
     "",
-    `字段说明见 [嗅探规则文档](https://fluxdown.zerx.dev/docs/zh/browser-extension/sniff-rules/)。（提交者 @${issue.user.login}）`,
+    `字段说明见 [嗅探规则文档](https://fluxdown.com/docs/zh/browser-extension/sniff-rules/)。（提交者 @${issue.user.login}）`,
   );
   return `${lines.join("\n")}\n`;
 }

@@ -4,9 +4,9 @@
 
 本仓库每小时运行一次：收录登记仓库的新 Release → 用扩展同款校验器检查全部规则并运行规则测试 → 统一签名发布到 `dist/`。FluxDown 桌面端验签后下发给扩展，不需要等扩展发版。
 
-*English: official rules plus an index of community rule repositories for the FluxDown browser extension. Authors keep rules in their own repository, register it here once, and every later Release is picked up automatically. Guide: <https://fluxdown.zerx.dev/docs/en/contributing/sniff-rules/>.*
+*English: official rules plus an index of community rule repositories for the FluxDown browser extension. Authors keep rules in their own repository, register it here once, and every later Release is picked up automatically. Guide: <https://fluxdown.com/docs/en/contributing/sniff-rules/>.*
 
-文档：[嗅探规则参考](https://fluxdown.zerx.dev/docs/zh/browser-extension/sniff-rules/)（每个字段的含义） · [贡献嗅探规则](https://fluxdown.zerx.dev/docs/zh/contributing/sniff-rules/)（完整流程）
+文档：[嗅探规则参考](https://fluxdown.com/docs/zh/browser-extension/sniff-rules/)（每个字段的含义） · [贡献嗅探规则](https://fluxdown.com/docs/zh/contributing/sniff-rules/)（完整流程）
 
 ## 两种贡献方式
 
@@ -61,7 +61,7 @@
 | 站点 | 规则里出现的每个 `host` / `pageHost`（含 `exclude`）和 `mirror.hosts` 都必须落在认领站点内；`extract` / `dom` 产出的下载地址在扩展里也只接受规则自身 `host` / `pageHost` 范围内的地址 |
 | `tests` | 可选但强烈建议；与本仓库所有规则一起运行，失败不收录 |
 
-规则字段的完整说明见[嗅探规则参考](https://fluxdown.zerx.dev/docs/zh/browser-extension/sniff-rules/)。
+规则字段的完整说明见[嗅探规则参考](https://fluxdown.com/docs/zh/browser-extension/sniff-rules/)。
 
 ### 3. 自检
 
