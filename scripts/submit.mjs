@@ -8,7 +8,8 @@
 //   comment.md   回复到 Issue 的说明
 //   pr.md        PR 正文（仅 ok 时有意义）
 // Issue 内容一律按数据处理：只做 JSON 解析与规则校验，不执行任何来自 Issue 的代码。
-import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkRepository } from "./lib.mjs";
@@ -55,19 +56,24 @@ export function parseIssueForm(body) {
   return sections;
 }
 
-/** 规则文件名：取第一条规则的 host / pageHost，去掉 `=` 与 `www.`。 */
+/**
+ * 规则文件名：取第一条规则的 host / pageHost，去掉 `=`、`*.` 与 `www.`。
+ * 有损清洗（含端口 / 路径 / 非 ASCII / 被截断）时追加原值的 6 位哈希，避免不同站点撞到同一个文件。
+ */
 export function fileSlug(rule) {
   const host = rule?.match?.host?.[0] ?? rule?.match?.pageHost?.[0];
   if (typeof host !== "string") return null;
-  const slug = host
-    .trim()
-    .toLowerCase()
-    .replace(/^=/, "")
-    .replace(/^www\./, "")
+  const original = host.trim().toLowerCase();
+  const base = original.replace(/^=/, "").replace(/^\*\./, "").replace(/^www\./, "");
+  const cleaned = base
     .replace(/[^a-z0-9.-]+/g, "-")
     .replace(/^[^a-z0-9]+/, "")
+    .replace(/[^a-z0-9]+$/, "")
     .slice(0, 80);
-  return slug === "" ? null : slug;
+  if (cleaned === "") return null;
+  if (cleaned === base) return cleaned;
+  const hash = createHash("sha256").update(original).digest("hex").slice(0, 6);
+  return `${cleaned.slice(0, 73).replace(/[^a-z0-9]+$/, "")}-${hash}`;
 }
 
 /**
@@ -134,6 +140,65 @@ export function mergeRuleFile(existing, rules, tests) {
   return mergedTests.length > 0 ? { rules: merged, tests: mergedTests } : { rules: merged };
 }
 
+/** 记录每条社区规则的提交者（仓库根 owners.json），防止他人用同名 id 覆盖。 */
+export const OWNERS_FILE = "owners.json";
+/** 维护者给 Issue 加这个标签后，可覆盖他人提交的同名规则。 */
+export const MAINTAINER_LABEL = "maintainer-override";
+const MAX_SAMPLES = 20;
+
+function readOwners(root) {
+  const path = join(root, OWNERS_FILE);
+  if (!existsSync(path)) return {};
+  const parsed = JSON.parse(readFileSync(path, "utf8"));
+  return isRecord(parsed) ? parsed : {};
+}
+
+function sortKeys(object) {
+  return Object.fromEntries(Object.entries(object).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+}
+
+function hasMaintainerLabel(issue) {
+  return (issue.labels ?? []).some((label) => (typeof label === "string" ? label : label?.name) === MAINTAINER_LABEL);
+}
+
+/** 找出已收录该规则 id 的社区规则文件（相对路径）；没有返回 null。 */
+function findRuleFile(root, id) {
+  const dir = join(root, "rules", "community");
+  if (!existsSync(dir)) return null;
+  for (const name of readdirSync(dir).sort()) {
+    if (!name.endsWith(".json")) continue;
+    const parsed = JSON.parse(readFileSync(join(dir, name), "utf8"));
+    if (Array.isArray(parsed?.rules) && parsed.rules.some((rule) => rule?.id === id)) return `rules/community/${name}`;
+  }
+  return null;
+}
+
+/**
+ * 示例资源地址（每行一个）→ classifyResponse 测试：默认期望被识别为资源，行首加 `!` 表示期望不被任何规则识别（decision 为 none）。
+ * 这样提交者不必手写测试 JSON，规则改坏时 CI 也会报警。
+ */
+export function parseSamples(text, pageUrl) {
+  const errors = [];
+  const tests = [];
+  const lines = text.split("\n").map((line) => line.trim()).filter((line) => line !== "");
+  if (lines.length > MAX_SAMPLES) errors.push(`示例资源地址最多 ${MAX_SAMPLES} 行`);
+  for (const line of lines.slice(0, MAX_SAMPLES)) {
+    const ignore = line.startsWith("!");
+    const url = ignore ? line.slice(1).trim() : line;
+    if (!/^https?:\/\//i.test(url) || hostOf(url) === null) {
+      errors.push(`示例资源地址不是完整的 http(s) 地址：${url.slice(0, 120)}`);
+      continue;
+    }
+    tests.push({
+      name: `sample ${ignore ? "none" : "resource"}: ${url.slice(0, 160)}`,
+      call: "classifyResponse",
+      args: [{ url, pageUrl, size: 0, attachment: false }],
+      expect: { decision: ignore ? "none" : "resource" },
+    });
+  }
+  return { tests, errors };
+}
+
 function hostOf(url) {
   try {
     return new URL(url).hostname.toLowerCase();
@@ -182,6 +247,13 @@ export function processSubmission({ root, issue }) {
   }
   if (errors.length > 0) return fail();
 
+  const sampleTests = [];
+  const sampled = parseSamples(fields[FIELDS.samples] ?? "", fields[FIELDS.page] ?? "");
+  errors.push(...sampled.errors);
+  sampleTests.push(...sampled.tests);
+  tests = [...tests, ...sampleTests];
+  if (errors.length > 0) return fail();
+
   const slug = fileSlug(converted.rules[0]);
   if (slug === null) {
     errors.push("社区规则必须在 match.host 或 match.pageHost 中限定站点");
@@ -201,6 +273,22 @@ export function processSubmission({ root, issue }) {
 
   const rel = `rules/community/${slug}.json`;
   const path = join(root, rel);
+  const owners = readOwners(root);
+  const override = hasMaintainerLabel(issue);
+  let overrodeOwner = null;
+  for (const rule of converted.rules) {
+    const owner = owners[rule.id];
+    const existingFile = findRuleFile(root, rule.id);
+    if (existingFile === null || (owner && owner.id === issue.user.id)) continue;
+    if (!override) {
+      errors.push(
+        `${rule.id} 已由${owner ? ` @${owner.login} ` : "维护者 / 他人"}提交（${existingFile}），不能覆盖；请换一个规则名称，或联系维护者加 \`${MAINTAINER_LABEL}\` 标签后重新校验`,
+      );
+    } else {
+      overrodeOwner = owner?.login ?? "maintainer";
+    }
+  }
+  if (errors.length > 0) return fail();
   const previousText = existsSync(path) ? readFileSync(path, "utf8") : null;
   const next = mergeRuleFile(previousText === null ? null : JSON.parse(previousText), converted.rules, tests);
   const text = `${JSON.stringify(next, null, 2)}\n`;
@@ -214,11 +302,17 @@ export function processSubmission({ root, issue }) {
     errors.push(...check.errors);
     return { ...fail(), file: rel };
   }
+  const nextOwners = { ...owners };
+  for (const rule of converted.rules) nextOwners[rule.id] = { login: issue.user.login, id: issue.user.id };
+  writeFileSync(join(root, OWNERS_FILE), `${JSON.stringify(sortKeys(nextOwners), null, 2)}\n`);
   return {
     ok: true,
     file: rel,
     ruleIds: converted.rules.map((rule) => rule.id),
     changed: previousText !== text,
+    testCount: next.tests?.length ?? 0,
+    sampleTestCount: sampleTests.length,
+    overrodeOwner,
     errors,
     warnings,
   };
@@ -244,8 +338,13 @@ function renderComment(result, issue) {
   return `${lines.join("\n")}\n`;
 }
 
+/** 把用户文本放进围栏代码块：打断其中的围栏，避免提前闭合。 */
+function fenced(text) {
+  return ["```text", text.replace(/```/g, "ʼʼʼ").trim(), "```"].join("\n");
+}
+
 function renderPr(result, issue, fields) {
-  return [
+  const lines = [
     `Closes #${issue.number}`,
     "",
     `社区规则提交，来自 @${issue.user.login}。已在提交流水线中通过 \`build.mjs\` 同款校验与规则测试。`,
@@ -253,10 +352,15 @@ function renderPr(result, issue, fields) {
     `- 文件：\`${result.file}\``,
     `- 规则：${result.ruleIds.map((id) => `\`${id}\``).join("、")}`,
     `- 示例页面：${fields[FIELDS.page] ?? ""}`,
-    "",
-    "审核要点：站点范围是否最小、选择器 / 正则是否稳定、是否会误判其它资源。",
-    "",
-  ].join("\n");
+    `- 自带测试：${result.testCount ?? 0} 条（其中由示例资源地址自动生成 ${result.sampleTestCount ?? 0} 条）`,
+  ];
+  if (result.overrodeOwner) lines.push(`- ⚠️ 覆盖了 ${result.overrodeOwner} 提交的规则（维护者已授权）`);
+  const samples = fields[FIELDS.samples] ?? "";
+  if (samples !== "") lines.push("", "### 示例资源地址", "", fenced(samples));
+  const notes = fields[FIELDS.notes] ?? "";
+  if (notes !== "") lines.push("", "### 提交者说明", "", fenced(notes));
+  lines.push("", "审核要点：站点范围是否最小、选择器 / 正则是否稳定、是否会误判其它资源。", "");
+  return lines.join("\n");
 }
 
 if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {

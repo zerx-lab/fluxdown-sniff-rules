@@ -34,7 +34,7 @@ body:
     id: samples
     attributes:
       label: 示例资源地址 / Example resource URLs
-      description: 规则应识别（或忽略）的资源地址，每行一个，可选。/ Resource URLs the rule should match, one per line (optional).
+      description: 规则应识别的资源地址，每行一个，可选；会自动生成测试。行首加 ! 表示该地址不应被识别。/ Resource URLs the rule should match, one per line (optional); tests are generated automatically. Prefix a line with ! if it must NOT match.
   - type: textarea
     id: tests
     attributes:

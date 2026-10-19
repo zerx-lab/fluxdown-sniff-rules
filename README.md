@@ -102,7 +102,10 @@ node fluxdown-sniff-rules/scripts/check-source.mjs --file sniff-rules.json --rep
 
 ## 一次性提交（不建仓库）
 
-在扩展「设置 → 嗅探规则 → 本地规则」里写好并验证规则，点该行的「提交到社区」，浏览器打开预填好的 [Issue 表单](../../issues/new?template=community-rule.yml)。机器人自动校验：通过则开 PR；不通过回复原因，**编辑 Issue** 即可重新校验。规则会以 `community.misc.<名字>` 存进 `rules/community/<站点>.json`。已被登记仓库认领的站点不接受此处提交。
+在扩展「设置 → 嗅探规则 → 本地规则」里写好并验证规则，点该行的「提交到社区」，浏览器打开预填好的 [Issue 表单](../../issues/new?template=community-rule.yml)。机器人自动校验：通过则开 PR（同时派发 `check` 工作流）；不通过回复原因，**编辑 Issue** 即可重新校验。规则会以 `community.misc.<名字>` 存进 `rules/community/<站点>.json`（站点含端口 / 路径等非常规字符时文件名带 6 位哈希）。已被登记仓库认领的站点不接受此处提交。
+
+- 「示例资源地址」每行一个，自动生成 `classifyResponse` 测试（期望被识别为资源；行首加 `!` 表示不应被识别），并连同「说明」写进 PR 正文供审核。
+- 归属：每条 `community.misc.*` 规则的提交者记录在 `owners.json`；他人不能用同名 id 覆盖，除非维护者给 Issue 加 `maintainer-override` 标签（归属随之转移）。
 
 ## 目录
 
