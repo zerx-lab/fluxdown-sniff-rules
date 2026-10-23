@@ -4,9 +4,9 @@
 var builtin_default = {
   format: "fluxdown-sniff-pack",
   packId: "builtin",
-  sequence: 2,
+  sequence: 3,
   engine: 1,
-  issuedAt: "2026-10-18T00:00:00Z",
+  issuedAt: "2026-10-22T00:00:00Z",
   rules: [
     {
       id: "builtin.ext.video",
@@ -327,8 +327,26 @@ var builtin_default = {
       }
     },
     {
+      id: "builtin.mime.pdf",
+      version: 1,
+      tier: "builtin",
+      title: "按 MIME 识别 PDF（iframe / embed / object / 页面内阅读器）",
+      stage: "response",
+      priority: 10,
+      match: {
+        mime: [
+          "application/pdf",
+          "application/x-pdf"
+        ]
+      },
+      action: {
+        kind: "resource",
+        type: "document"
+      }
+    },
+    {
       id: "builtin.mime.classify.document",
-      version: 2,
+      version: 3,
       tier: "builtin",
       title: "按 MIME 归类文档（仅分类）",
       stage: "response",
@@ -336,7 +354,6 @@ var builtin_default = {
       classifyOnly: true,
       match: {
         mime: [
-          "application/pdf",
           "application/msword",
           "application/epub+zip",
           "text/csv",
@@ -443,7 +460,7 @@ var builtin_default = {
     },
     {
       id: "builtin.noise.substr",
-      version: 2,
+      version: 3,
       tier: "builtin",
       title: "忽略统计 / 广告域名请求",
       stage: "response",
@@ -503,6 +520,7 @@ var builtin_default = {
         {
           mime: [
             "application/pdf",
+            "application/x-pdf",
             "application/zip",
             "application/x-bittorrent"
           ]
@@ -635,7 +653,7 @@ var builtin_default = {
     },
     {
       id: "builtin.noise.paths",
-      version: 2,
+      version: 3,
       tier: "builtin",
       title: "忽略站点接口 / 静态资源 / 埋点路径",
       stage: "response",
@@ -749,6 +767,7 @@ var builtin_default = {
             "application/dash+xml",
             "application/m4s",
             "application/pdf",
+            "application/x-pdf",
             "application/zip",
             "application/x-bittorrent"
           ]
@@ -2569,8 +2588,8 @@ function compileRules(input) {
       });
       return classifyRuleList;
     },
-    isIgnored(url, pageUrl, attachment) {
-      const c = makeCtx(url, pageUrl, { attachment });
+    isIgnored(url, pageUrl, attachment, mime) {
+      const c = makeCtx(url, pageUrl, { attachment, mime });
       for (const r of candidates(ignoreIndex, c.ext)) {
         if (r.matches(c))
           return r.ref;
