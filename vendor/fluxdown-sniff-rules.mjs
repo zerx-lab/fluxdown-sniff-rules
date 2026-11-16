@@ -1712,6 +1712,7 @@ var MAX_MIMES = 64;
 var MAX_HEADER_PREDICATES = 8;
 var MAX_MIRROR_HOSTS = 16;
 var MAX_EXTRACT_FIELDS = 32;
+var MAX_PLAYER_INSET_TOP = 200;
 var ID_RE = /^(builtin|official|plugin|community|local)\.[a-z0-9][a-z0-9._-]{1,62}$/;
 var RESOURCE_TYPES = new Set([
   "video",
@@ -1977,8 +1978,13 @@ function checkRule(rule, expectedTier) {
         return sel;
       if (a.kind === "title" && a.attr !== undefined && typeof a.attr !== "string")
         return bad("attr_invalid", "attr 须为字符串");
-      if (a.kind === "player" && a.float !== "hide")
-        return bad("player_float_invalid", "player.float 非法");
+      if (a.kind === "player") {
+        if (a.float === "inset") {
+          if (!Number.isInteger(a.top) || a.top < 1 || a.top > MAX_PLAYER_INSET_TOP)
+            return bad("player_top_invalid", `player.top 须为 1–${MAX_PLAYER_INSET_TOP} 的整数`);
+        } else if (a.float !== "hide")
+          return bad("player_float_invalid", "player.float 非法");
+      }
       if (!hasHost(rule.match) && rule.tier !== "local")
         return bad("page_scope_required", "page 规则必须限定 host 或 pageHost");
       break;
@@ -2740,13 +2746,15 @@ function compileRules(input) {
     },
     pageHints(pageUrl) {
       const c = makeCtx(pageUrl, pageUrl);
-      const hints = { titles: [], players: [] };
+      const hints = { titles: [], players: [], insets: [] };
       for (const r of pageRules) {
         if (!r.matches(c))
           continue;
         const a = r.rule.action;
         if (a.kind === "title")
           hints.titles.push(a.attr ? { selector: a.selector, attr: a.attr } : { selector: a.selector });
+        else if (a.kind === "player" && a.float === "inset")
+          hints.insets.push({ selector: a.selector, top: a.top });
         else if (a.kind === "player")
           hints.players.push({ selector: a.selector });
       }
