@@ -17,6 +17,59 @@
         "float": "inset",
         "top": 52
       }
+    },
+    {
+      "id": "official.youtube.ignore-googlevideo",
+      "version": 1,
+      "tier": "official",
+      "title": "YouTube：googlevideo 播放分片（UMP 流）不是可下载文件",
+      "stage": "response",
+      "match": {
+        "host": [
+          "googlevideo.com"
+        ],
+        "pageHost": [
+          "youtube.com",
+          "youtube-nocookie.com"
+        ]
+      },
+      "action": {
+        "kind": "ignore"
+      }
+    },
+    {
+      "id": "official.youtube.watch-page",
+      "version": 1,
+      "tier": "official",
+      "title": "YouTube：播放页（含手机版 m.youtube.com）交给桌面端 / NAS 的解析插件",
+      "stage": "dom",
+      "match": {
+        "pageHost": [
+          "youtube.com"
+        ],
+        "url": [
+          "*://www.youtube.com/watch?*",
+          "*://youtube.com/watch?*",
+          "*://m.youtube.com/watch?*",
+          "*://music.youtube.com/watch?*",
+          "*://www.youtube.com/shorts/*",
+          "*://youtube.com/shorts/*",
+          "*://m.youtube.com/shorts/*",
+          "*://www.youtube.com/live/*",
+          "*://youtube.com/live/*",
+          "*://m.youtube.com/live/*"
+        ]
+      },
+      "action": {
+        "kind": "dom",
+        "selector": "#movie_player video, #shorts-player video, .html5-video-player video",
+        "attr": "src",
+        "emit": {
+          "mode": "resource",
+          "url": "${page}",
+          "type": "video"
+        }
+      }
     }
   ],
   "tests": [
@@ -46,6 +99,63 @@
         "players": [],
         "insets": []
       }
+    },
+    {
+      "name": "手机版播放页的 googlevideo UMP 分片被忽略",
+      "call": "classifyResponse",
+      "args": [
+        {
+          "url": "https://rr1---sn-vgqsknzy.googlevideo.com/videoplayback?expire=1&mime=video%2Fmp4&cpn=x&rn=5&alr=yes",
+          "pageUrl": "https://m.youtube.com/watch?v=dQw4w9WgXcQ",
+          "size": 0,
+          "attachment": false
+        }
+      ],
+      "expect": {
+        "decision": "ignore",
+        "rule": {
+          "id": "official.youtube.ignore-googlevideo"
+        }
+      }
+    },
+    {
+      "name": "桌面版播放页的 googlevideo 分片被忽略",
+      "call": "isIgnored",
+      "args": [
+        "https://rr3---sn-nx5e6nl7.googlevideo.com/videoplayback?mime=audio%2Fwebm",
+        "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        false
+      ],
+      "expect": {
+        "id": "official.youtube.ignore-googlevideo",
+        "tier": "official"
+      }
+    },
+    {
+      "name": "手机版播放页交出页面地址",
+      "call": "domRules",
+      "args": [
+        "https://m.youtube.com/watch?v=dQw4w9WgXcQ"
+      ],
+      "expect": [
+        {
+          "rule": {
+            "id": "official.youtube.watch-page"
+          },
+          "emit": {
+            "mode": "resource",
+            "url": "${page}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "频道首页不交出页面地址",
+      "call": "domRules",
+      "args": [
+        "https://www.youtube.com/@example"
+      ],
+      "expect": []
     }
   ]
 }
